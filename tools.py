@@ -83,25 +83,24 @@ class NesterovRMSPropOptimizer(RMSPropOptimizer):
         grad = tf.gradients(loss, theta)
         update_theta_1 = [var_1.assign_sub(tf.multiply(self.alpha, var_2)) for var_1, var_2 in zip(theta, self.v)]
 
-        # script 2，update r
         grad_norm = reduce(lambda x, y: tf.add(tf.reduce_sum(tf.multiply(x, x)),
                                                tf.reduce_sum(tf.multiply(y, y))), grad)
-        update_r = self.r.assign(value=tf.add(tf.multiply(self.rho, self.r),
+        r_tensor = self.r.assign(value=tf.add(tf.multiply(self.rho, self.r),
                                               tf.multiply(1 - self.rho, grad_norm)), use_locking=False)
 
-        # script 3, update v
+        # script 2, update v
         update_v = []
         for var, value in zip(self.v, grad):
             assign_op = tf.subtract(tf.multiply(self.alpha, var),
-                                    tf.multiply(tf.div(self.learning_rate, tf.sqrt(update_r)), value))
+                                    tf.multiply(tf.div(self.learning_rate, tf.sqrt(r_tensor)), value))
             update_v.append(var.assign(assign_op))
 
-        # script 4, update theta
+        # script 3, update theta
         update_theta_2 = []
         for var, value in zip(theta, self.v):
             update_theta_2.append(var.assign_add(value))
 
-        return update_theta_0, update_theta_1, update_r, update_v, update_theta_2
+        return update_theta_0, update_theta_1, update_v, update_theta_2
 
     @classmethod
     def unit_test(cls):
@@ -133,13 +132,17 @@ class NesterovRMSPropOptimizer(RMSPropOptimizer):
                     c_2 = sess_2.run(cost, feed_dict={X: data_X, Y: data_Y})
                     print(i, ':\n', 'my_cost = %.8f' % c_1, '\ttf_cost = %.8f' % c_2)
 
+                    # print('neural_network/Optimizer/r:0')
+                    r = tf.get_default_graph().get_tensor_by_name('neural_network/Optimizer/r:0')
+                    print(sess_1.run(r))
+
                     sess_1.run(train_step_1, feed_dict={X: data_X, Y: data_Y, lr: 0.001})
                     sess_2.run(train_step_2, feed_dict={X: data_X, Y: data_Y, lr: 0.001})
 
 
-with tf.Graph().as_default():
-    RMSPropOptimizer.unit_test()
-
+# with tf.Graph().as_default():
+#     RMSPropOptimizer.unit_test()
+#
 with tf.Graph().as_default():
     NesterovRMSPropOptimizer.unit_test()
 
